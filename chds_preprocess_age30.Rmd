@@ -1,0 +1,642 @@
+---
+title: "Data_preprocessing"
+author: "Thanthirige Lakshika Ruberu"
+date: "7/6/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = F,message = F)
+```
+
+```{r}
+#read file.
+library(dplyr)
+library(readxl)
+datafile <- read_excel("file1.xlsx")
+datafile2 <- read.csv("file3.csv",header = F)
+```
+DSM IV cannabis dependence 15-35 years
+```{r}
+dependency=datafile2[,1:17]
+num=15:30
+colnames(dependency)=c('id',num)
+
+
+
+#replace-999 with NA
+dependency[,2:17][dependency[,2:17]==-999]=NA
+
+x=colSums(dependency[,2:17],na.rm = T)
+x
+
+round(x/1265,3)
+
+#getting dependency status by calling max
+dependency$diagnosis=do.call(pmax, c(dependency[,-1], na.rm =T))
+table(dependency$diagnosis,useNA = 'ifany')
+
+#computing age of diagnosis
+#dependency$diag_age=as.numeric(colnames(dependency[,2:17])[apply(dependency[,2:17],1, function(x) min(which(x==1)))])
+dependency$diag_age=ifelse(dependency$diagnosis==1,as.numeric(colnames(dependency[,2:17])[apply(dependency[,2:17],1, function(x) min(which(x==1)))]),as.numeric(colnames(dependency[,2:17])[apply(dependency[,2:17],1, function(x) max(which(x==0)))]))
+
+
+dependency=data.frame('id'=dependency$id,'diagnosis'=dependency$diagnosis,'age_of_diagnosis'=dependency$diag_age)
+
+min(na.omit(dependency$age_of_diagnosis))
+
+#remove people with age 15 
+
+```
+
+
+
+
+
+
+
+
+```{r}
+#gender
+#1=Male
+gender=datafile$gender
+table(gender,useNA = 'ifany')
+
+```
+
+Peer Cannabis use $\\$
+Available variables are$\\$
+In the last year$\\$
+age15/16: best friend use cannabis with 1=Yes, 2=N0$\\$
+age15/16: other close friends use cannabis  1=Yes, 2=N0$\\$
+age 18/21/25 :Two questions for How many of your Male/female friends Use marijuana or other drugs (Most=3/Some=2/None=1) (No timeline in question)$\\$
+```{r}
+#peer cannabis use:Of your 3 best friends, how many use marijuana at least once a month?
+
+peer_cannabis_use=datafile[,(ncol(datafile)-9):ncol(datafile)] 
+# note the dataset contain 0,1 for yes no variables
+#for 14,15 take average of best friend and other close friends
+peer_cannabis_use$age15=apply(peer_cannabis_use[,1:2],1,mean)
+peer_cannabis_use$age16=apply(peer_cannabis_use[,3:4],1,mean)
+
+
+#for 18,21, 25 take average of male and female friends
+#recode None=0,Some=1 and Most=2
+peer_cannabis_use[,5:10][peer_cannabis_use[,5:10]==1]=0
+peer_cannabis_use[,5:10][peer_cannabis_use[,5:10]==2]=1
+peer_cannabis_use[,5:10][peer_cannabis_use[,5:10]==3]=2
+
+peer_cannabis_use$age18=apply(peer_cannabis_use[,5:6],1,mean)/2
+peer_cannabis_use$age21=apply(peer_cannabis_use[,7:8],1,mean)/2
+peer_cannabis_use$age25=apply(peer_cannabis_use[,9:10],1,mean)/2
+
+
+
+peer_cannabis_use=data.frame('id'=datafile$a0, peer_cannabis_use[,11:15])
+
+
+par(mfrow=c(1,5))
+boxplot(peer_cannabis_use$age15,xlab='age15')
+boxplot(peer_cannabis_use$age16,xlab='age16')
+boxplot(peer_cannabis_use$age18,xlab='age18',ylim=c(0,1))
+boxplot(peer_cannabis_use$age21,xlab='age21',ylim=c(0,1))
+boxplot(peer_cannabis_use$age25,xlab='age25',ylim=c(0,1))
+
+
+
+peer_cannabis_use$diagnosis=dependency$diagnosis
+peer_cannabis_use$diagnosis_age=dependency$age_of_diagnosis
+
+
+peer_cannabis_use$age15=ifelse(is.na(peer_cannabis_use$diagnosis_age)==T,NA,ifelse(peer_cannabis_use$diagnosis_age<15,NA,peer_cannabis_use$age15))
+peer_cannabis_use$age16=ifelse(is.na(peer_cannabis_use$diagnosis_age)==T,NA,ifelse(peer_cannabis_use$diagnosis_age<16,NA,peer_cannabis_use$age16))
+peer_cannabis_use$age18=ifelse(is.na(peer_cannabis_use$diagnosis_age)==T,NA,ifelse(peer_cannabis_use$diagnosis_age<18,NA,peer_cannabis_use$age18))
+peer_cannabis_use$age21=ifelse(is.na(peer_cannabis_use$diagnosis_age)==T,NA,ifelse(peer_cannabis_use$diagnosis_age<21,NA,peer_cannabis_use$age21))
+peer_cannabis_use$age25=ifelse(is.na(peer_cannabis_use$diagnosis_age)==T,NA,ifelse(peer_cannabis_use$diagnosis_age<25,NA,peer_cannabis_use$age25))
+
+
+
+num=c(15,16,18,21,25)
+colnames(peer_cannabis_use)=c('id',paste('peer',num,sep=''))
+```
+\newpage
+
+Delinquency
+
+Conduct problems from ages 7-16
+
+
+Age 7 min 41 max 123;Age 8 min 43 max 129; age 9 min 41 max 123; age 10 min 43 max 129; age 11 min 43 max 129; age 12 min 43 max 129; age 13 min 41 max 123; age 14 min 39 max 117; age 15 min 21 max 63; age 16 min 21 max 63.
+
+ check for ages for delinquency of controls whose age at diagnosis was 16
+```{r}
+
+
+#extract delinquency variables
+delinquency=datafile2[,23:32]
+ages=7:16
+colnames(delinquency)=paste('del',ages,sep='')
+
+#make -999 NA
+delinquency[delinquency==-999]=NA
+summary(delinquency)
+#scaling variables 0-1
+delinquency$del7=(delinquency$del7-41)/123
+delinquency$del8=(delinquency$del8-43)/129
+delinquency$del9=(delinquency$del9-41)/123
+delinquency$del10=(delinquency$del10-43)/129
+delinquency$del11=(delinquency$del11-43)/129
+delinquency$del12=(delinquency$del12-43)/129
+delinquency$del13=(delinquency$del13-41)/123
+delinquency$del14=(delinquency$del14-39)/117
+delinquency$del15=(delinquency$del15-21)/63
+delinquency$del16=(delinquency$del16-21)/63
+
+delinquency$diagnosis_age=dependency$age_of_diagnosis
+
+
+delinquency$del16=ifelse(is.na(delinquency$diagnosis_age)==T,NA,ifelse(delinquency$diagnosis_age<16,NA,delinquency$del16))
+
+
+#summary(delinquency)
+
+
+
+```
+
+\newpage
+
+Adverse Childhood Experiences
+
+Physical abuse before16 years: childhood physical punishment (reverse scored, higher numbers are lower levels of punishment)-birth to 16 years can use it because response is collected starting at 16 (4) parent never used physical punishment (3) parents seldom used physical punishment  (2) at least one parent regularly used physical punishment  (1) at least one parent used physical punishment  too often or too severely$\\$
+$\\$
+
+make 4=0  and others 1
+
+```{r}
+ph_abuse=datafile$physab
+table(ph_abuse,useNA = 'ifany')
+
+ph_abuse[ph_abuse==3]=1
+ph_abuse[ph_abuse==2]=1
+ph_abuse[ph_abuse==4]=0
+
+table(ph_abuse,useNA = 'ifany')
+
+
+
+```
+
+Sexual abuse :childhood sexual abuse before age 16 
+0 = none, 1 = non-contact sexual abuse; 2 = contact sexual abuse (no penetration); 3 = contact sexual abuse involving penetration.
+
+sexually assaulted at age 17,18 (0,1 variable 0 must be no)$\\$
+```{r}
+se_abuse=data.frame('before16_Seabuse'=datafile$sexab,'17_Seabuse'=datafile$sxassault17,
+                    '18_Seabuse'=datafile$sxassault18)
+#In sexual abuse before 16 years there are 0,1,2,3 
+#make 0=0 and 1,2,3=1
+se_abuse$before16_Seabuse[se_abuse$before16_Seabuse==2]=1
+se_abuse$before16_Seabuse[se_abuse$before16_Seabuse==3]=1
+
+table(se_abuse$before16_Seabuse,useNA = 'ifany')
+
+#at 17 years
+table(se_abuse$X17_Seabuse,useNA = 'ifany')
+
+#at 18 years
+table(se_abuse$X18_Seabuse,useNA = 'ifany')
+
+
+
+
+#at age 18 if make se_abuse NA if they are already dependent
+se_abuse$diagnosis=dependency$diagnosis
+se_abuse$ageofdiagnosis=dependency$age_of_diagnosis
+se_abuse$X17_Seabuse=ifelse(is.na(se_abuse$ageofdiagnosis)==T,NA,ifelse(se_abuse$ageofdiagnosis<17,NA,se_abuse$X17_Seabuse))
+se_abuse$X18_Seabuse=ifelse(is.na(se_abuse$ageofdiagnosis)==T,NA,ifelse(se_abuse$ageofdiagnosis<18,NA,se_abuse$X18_Seabuse))
+
+
+
+#final variable say 1 if said 1 at any age 0 if all are not NA otherwise
+se_abuse$seabuse=do.call(pmax,c(se_abuse[,1:3],na.rm = T))
+se_abuse$id=datafile2$V1
+
+
+
+```
+
+Parental death or separation : Measured by total number of change in parental figures to age 15$\\$
+```{r}
+#parental seperation
+P_seperation=datafile$chpar15
+table(P_seperation,useNA = 'ifany')
+
+P_seperation=ifelse(P_seperation>0,1,P_seperation)
+table(P_seperation,useNA = 'ifany')
+```
+
+Parental incarceration :At age 15 years the young person's parents were asked if they had a record for criminal offending. $\\$
+```{r}
+p_jail=datafile$phoffend
+table(p_jail,useNA = 'ifany')
+```
+
+Father alcoholism: At age 15 years the young person's parents were asked whether they had a history of alcoholism or problems with alcohol$\\$
+```{r}
+p_alcohol=datafile$phalc
+table(p_alcohol,useNA = 'ifany')
+```
+
+```{r}
+#adverse childhoood experiences
+
+ACE=data.frame(ph_abuse,'se_abuse'=se_abuse$seabuse,P_seperation,p_jail,p_alcohol)
+
+sumna <- function(x) {
+       if(all(is.na(x))) NA else sum(x, na.rm = TRUE)
+}
+countna <- function(x) {
+       if(all(is.na(x))) NA else length(na.omit(x))
+}
+
+ACE$status=apply(ACE,1,sumna)
+
+ACE$countna=apply(ACE[,1:5],1,countna)
+
+ACE$status_final=ACE$status/ACE$countna
+
+
+```
+
+
+
+\newpage
+
+Personality_variables$\\$
+neuroticism age 14$\\$
+maximum possible value is 30
+novelty seeking age 16$\\$
+maximum possible value is 31
+conscientiousness (measured ONLY AT THIS AGE)$\\$
+These scales range from 4 to 12
+```{r}
+n_sum=(datafile$epin14-10)/30
+summary(n_sum)
+
+
+i_sum=datafile$resns/31
+summary(i_sum)
+
+c_sum=(datafile$conscientiousness40-4)/12
+summary(c_sum)
+
+par(mfrow=c(1,3))
+
+```
+
+
+
+```{r,echo=F}
+#final datasets
+
+#cross scetional variables
+final_Data=data.frame('id'=dependency$id,'diagnosis'=dependency$diagnosis,'gender'=gender,'ACE'=ACE$status_final,'n_sum'=n_sum,'i_sum'=i_sum,'c_sum'=c_sum,peer_cannabis_use[,2:6],delinquency)
+
+final_Data_complete=final_Data[complete.cases(final_Data[,2:7]), ]
+
+
+#remove people with all missing values for all waves in peer cannabis use
+#extract variables
+peer <- final_Data_complete %>% select(c(starts_with("peer")))
+#checking whether there are variables with missing values at each age
+peer$missing_values= apply(peer,1,function(x) sum(is.na(x)))
+#extract IDS whose values are missing
+peer_missing=peer %>%filter(peer$missing_values==5) #no missing values in all
+
+#remove people with all missing values for all waves in delinquency
+#extract variables
+delq <- final_Data_complete %>% select(c(starts_with("del")))
+#checking whether there are variables with missing values at each age
+delq$missing_values= apply(delq,1,function(x) sum(is.na(x)))
+#extract IDS whose values are missing
+delq_missing=peer %>%filter(delq$missing_values==10) #no missing values in all
+
+
+
+
+```
+
+```{r}
+#dealing with the users
+
+users=read.csv('file12.csv',header = F)
+
+#2nd variable = 13 year interview 1/2
+#3rd=14 year interview 1/2
+#4th/5th-15:16 year interview
+# 25-29 variables - Since you turned 18/21/25/30/35, have you ever used or tried smoking cannabis
+ 
+users=subset(users,users$V1 %in% final_Data_complete$id)
+
+
+#for 15 and 16 if >o make them 1
+
+users_use=users[,c(2:19)]
+num=c(13:30)
+colnames(users_use)=c(num)
+
+users_use$`13`=ifelse(users_use$`13`==2,0,users_use$`13`)
+users_use$`14`=ifelse(users_use$`14`==2,0,users_use$`14`)
+
+users_use$`15`=ifelse(users_use$`15`>0,1,users_use$`15`)
+users_use$`16`=ifelse(users_use$`16`>0,1,users_use$`16`)
+
+
+
+
+
+#extracting variables corresponding to age 18
+variables_18=users[,c(6,7,25)]
+variables_18$numberofuse=do.call(pmax, c(variables_18[,-3], na.rm = TRUE)) # get the maximum number of use in 17,18
+table(variables_18$V25,variables_18$numberofuse) # check weather 2 in have used correspond to number of uses being 0
+#in 17,18 0 corresponds to non use
+
+users_use$`17`=ifelse(users_use$`17`>0,1,users_use$`17`)
+users_use$`18`=ifelse(users_use$`18`>0,1,users_use$`18`)
+
+
+variables_21=users[,c(8,9,10,26)]
+variables_21$numberofuse=do.call(pmax, c(variables_21[,-4], na.rm = TRUE)) # get the maximum number of use in 17,18
+table(variables_21$V26,variables_21$numberofuse) # check weather 2 in have used correspond to number of uses being 0
+##here 99 seems to be not applicable
+#in 19,20,21, 99 corresponds to non use 
+
+users_use$`19`=ifelse(users_use$`19`==99,0,users_use$`19`)
+users_use$`20`=ifelse(users_use$`20`==99,0,users_use$`20`)
+users_use$`21`=ifelse(users_use$`21`==99,0,users_use$`21`)
+users_use$`19`=ifelse(users_use$`19`>0,1,users_use$`19`)
+users_use$`20`=ifelse(users_use$`20`>0,1,users_use$`20`)
+users_use$`21`=ifelse(users_use$`21`>0,1,users_use$`21`)
+
+
+
+variables_25=users[,c(11,12,13,14,27)]
+variables_25$numberofuse=do.call(pmax, c(variables_25[,-5], na.rm = TRUE)) # get the maximum number of use in 17,18
+table(variables_25$V27,variables_25$numberofuse) # check weather 2 in have used correspond to number of uses being 0
+## in 22,23,24,25 here 9 seems to be not applicable which means non users
+
+users_use$`22`=ifelse(users_use$`22`==9,0,users_use$`22`)
+users_use$`23`=ifelse(users_use$`23`==9,0,users_use$`23`)
+users_use$`24`=ifelse(users_use$`24`==9,0,users_use$`24`)
+users_use$`25`=ifelse(users_use$`25`==9,0,users_use$`25`)
+users_use$`22`=ifelse(users_use$`22` >0,1,users_use$`22`)
+users_use$`23`=ifelse(users_use$`23`>0,1,users_use$`23`)
+users_use$`24`=ifelse(users_use$`24`>0,1,users_use$`24`)
+users_use$`25`=ifelse(users_use$`25`>0,1,users_use$`25`)
+
+
+variables_30=users[,c(15,16,17,18,19,28)]
+variables_30$numberofuse=do.call(pmax, c(variables_30[,-6], na.rm = TRUE)) # get the maximum number of use in 17,18
+table(variables_30$V28,variables_30$numberofuse) 
+users_use$`26`=ifelse(users_use$`26`>0,1,users_use$`26`)
+users_use$`27`=ifelse(users_use$`27`>0,1,users_use$`27`)
+users_use$`28`=ifelse(users_use$`28`>0,1,users_use$`28`)
+users_use$`29`=ifelse(users_use$`29`>0,1,users_use$`29`)
+users_use$`30`=ifelse(users_use$`30`>0,1,users_use$`30`)
+
+# check weather 2 in have used correspond to number of uses being 0
+#from 25 -30 0 is non users
+
+#take age of first use
+users_use$status=do.call(pmax, c(users_use, na.rm = TRUE))
+users_use$age=as.numeric(colnames(users_use[,1:18])[apply(users_use[,1:18],1, function(x) min(which(x==1)))])
+users_use$diagnosis_age=final_Data_complete$diagnosis_age
+
+users_use2=subset(users_use,users_use$status==1)
+
+users_use2$final=ifelse(users_use2$age<=users_use2$diagnosis_age,1,0) #check with diagnosis age
+table(users_use2$final)
+```
+
+```{r}
+#combining final_Data and user_data
+final_Data_complete$use_status=users_use$status
+
+table(final_Data_complete$use_status,useNA = 'ifany') #no missing values in use status
+final_Data_complete=subset(final_Data_complete,final_Data_complete$use_status==1)
+
+
+```
+
+
+
+\newpage
+
+Summaries from the final dataset
+Number of cases and controls
+```{r}
+
+write.csv(final_Data_complete,'final_data_CHDS_302.csv')
+table(final_Data_complete$diagnosis)
+105/637 #16.48%
+```
+
+Gender-Male=1
+```{r}
+table(final_Data_complete$gender)
+319/637 #%50.07 males
+100-50.07
+table(final_Data_complete$gender,final_Data_complete$diagnosis)
+74/(74+31)
+100-70.48
+
+245/(245+287)
+100-46.05
+```
+
+Summary Statistics
+
+```{r}
+#ACE
+round(final_Data_complete %>% group_by(diagnosis) %>% summarise ( me=mean(ACE),std=sd(ACE)),2)
+round(final_Data_complete %>% summarise ( me=mean(ACE),std=sd(ACE)),2)
+
+#nsum
+round(final_Data_complete %>% group_by(diagnosis) %>% summarise ( me=mean(n_sum),std=sd(n_sum)),2)
+round(final_Data_complete %>% summarise ( me=mean(n_sum),std=sd(n_sum)),2)
+
+#csum
+round(final_Data_complete %>% group_by(diagnosis) %>% summarise ( me=mean(c_sum),std=sd(c_sum)),2)
+round(final_Data_complete %>% summarise ( me=mean(c_sum),std=sd(c_sum)),2)
+
+#isum
+round(final_Data_complete %>% group_by(diagnosis) %>% summarise ( me=mean(i_sum),std=sd(i_sum)),2)
+round(final_Data_complete %>% summarise ( me=mean(i_sum),std=sd(i_sum)),2)
+
+
+#delinquency
+delq <- final_Data_complete %>% select(c(starts_with("del")))
+delq$sum=apply(delq,1,  sumna)
+delq$count=apply(delq[,-11],1,  countna)
+
+delq$score=delq$sum/delq$count
+delq$diagnosis=final_Data_complete$diagnosis
+
+round(delq %>% group_by(diagnosis) %>% summarise ( me=mean(score),std=sd(score)),2)
+round(delq%>% summarise ( me=mean(score),std=sd(score)),2)
+
+#peer Cannabis use
+
+#calculate random effects for peer
+peer <- final_Data_complete %>% select(c(starts_with("peer")))
+peer$target=final_Data_complete$id
+#getting ages
+peer$peer15_age=15
+peer$peer16_age=16
+peer$peer18_age=18
+peer$peer21_age=21
+peer$peer25_age=25
+
+#MAking ages NA if the corresponding value is NA
+
+peer$peer15_age=ifelse(is.na(peer$peer15)==T,NA,peer$peer15_age)
+peer$peer16_age=ifelse(is.na(peer$peer16)==T,NA,peer$peer16_age)
+peer$peer18_age=ifelse(is.na(peer$peer18)==T,NA,peer$peer18_age)
+peer$peer21_age=ifelse(is.na(peer$peer21)==T,NA,peer$peer21_age)
+peer$peer25_age=ifelse(is.na(peer$peer25)==T,NA,peer$peer25_age)
+
+#reshaping the data 
+#this may need to change based on the number of lonigitudinal waves
+
+chds_pred_long_reshape_bfmj=reshape(peer,direction = "long",
+                               varying = list(c("peer15","peer16","peer18","peer21","peer25"),
+                                              c("peer15_age","peer16_age","peer18_age","peer21_age","peer25_age")),
+                               v.names = c("no_bf_mj","age"))
+
+
+
+chds_pred_long_reshape_bfmj=chds_pred_long_reshape_bfmj[order(chds_pred_long_reshape_bfmj$target),]
+chds_pred_long_reshape_bfmj=(na.exclude(chds_pred_long_reshape_bfmj)) 
+
+chds_pred_long_reshape_bfmj$age_sqr=chds_pred_long_reshape_bfmj$age^2
+
+
+
+#calculation of subject specific random effects  for no of friends who use cannabis
+
+#max_id= maximum id  number is this example, it is 423
+#data_bfmj= data_frame that stored random intercepts for no_bf_mj and age for 
+
+#####
+cal_bfmj_rand <- function(max_id, data_bfmj,mean_age,sd_age){
+data_final= replicate(max_id,NA)
+s1_mjcent=list()
+a_new_sub=list()
+b_new_sub=list()
+A_prod_sub=list()
+diag_sub=list()
+v_sub=list()
+
+b_new_sub=list()
+b_renew_sub_mj_cent=list()
+#a_bfmj<-c(-2.1994286,0.2728788,-0.0074255)
+a_bfmj<-c(0.243510,0.045512,-0.023522)
+sigma_u_bfmj <- 0.047829
+sigma_e_bfmj <- 0.054666
+
+G<- sigma_u_bfmj
+
+offdiag_bfmj<-sigma_u_bfmj
+
+
+
+for(i in c(1:max_id)){
+  s1_mjcent[[i]]=subset(data_bfmj, data_bfmj$id==i)
+  #input mean and sd of age for the new data
+  s1_mjcent[[i]]$age_cent <- (s1_mjcent[[i]]$age-mean_age)/sd_age
+  s1_mjcent[[i]]$age_centqd <- (s1_mjcent[[i]]$age_cent )^2
+  
+  a_new_sub[[i]] <- cbind(rep(1,dim(s1_mjcent[[i]])[1]),s1_mjcent[[i]]$age_cent,s1_mjcent[[i]]$age_centqd
+                          )
+  b_new_sub[[i]]<-as.matrix(rep(1,dim(s1_mjcent[[i]])[[1]]))
+  A_prod_sub [[i]] <- a_new_sub[[i]]%*%a_bfmj
+  
+  diag_sub[[i]] <- rep(sigma_u_bfmj +sigma_e_bfmj,dim(s1_mjcent[[i]])[1])
+  
+  v_sub[[i]]<- matrix(NA,ncol = length(diag_sub[[i]]),nrow=length(diag_sub[[i]]))
+  v_sub[[i]][lower.tri(v_sub[[i]])]<-offdiag_bfmj
+  v_sub[[i]][upper.tri(v_sub[[i]])]<-offdiag_bfmj
+  diag(v_sub[[i]])<-diag_sub[[i]]
+  b_renew_sub_mj_cent[[i]]<- G*t(b_new_sub[[i]])%*%solve(v_sub[[i]])%*%(s1_mjcent[[i]]$no_bf_mj-A_prod_sub[[i]])
+ 
+data_final[i]   <-  unlist(b_renew_sub_mj_cent[[i]]) 
+}
+data_final1<-data.frame(cbind(unique(data_bfmj$target),data_final))
+colnames(data_final1)=c("target","no_bf_mj")
+return(data.frame(data_final1))
+}
+
+
+
+#evaluating the function
+mean_age=16.64445
+sd_age=1.787426
+
+
+b_bfmj_sub_cent_nr1<-(cal_bfmj_rand(637,chds_pred_long_reshape_bfmj,mean_age,sd_age))
+
+
+peer$random_effects=b_bfmj_sub_cent_nr1$no_bf_mj
+
+peer$diagnosis=final_Data_complete$diagnosis
+
+
+round(peer %>% group_by(diagnosis) %>% summarise ( me=mean(random_effects),std=sd(random_effects)),2)
+round(peer %>% summarise ( me=mean(random_effects),std=sd(random_effects)),2)
+```
+
+
+ACE
+```{r,echo=F,eval=F}
+pdf('ACE_CHDS_30.pdf')
+par(mfrow=c(1,2))
+boxplot(final_Data_complete$ACE~final_Data_complete$diagnosis,xlab='diagnosis',ylab = 'ACE',main='CHDS',ylim=c(0,1),col=NULL)
+dev.off()
+
+pdf('c_sum_CHDS_30.pdf')
+par(mfrow=c(1,2))
+boxplot(final_Data_complete$c_sum~final_Data_complete$diagnosis,xlab='diagnosis',ylab = 'c_sum',main='CHDS',ylim=c(0,1),col=NULL)
+dev.off()
+
+pdf('n_sum_CHDS_30.pdf')
+par(mfrow=c(1,2))
+boxplot(final_Data_complete$n_sum~final_Data_complete$diagnosis,xlab='diagnosis',ylab = 'n_sum',main='CHDS',ylim=c(0,1),col=NULL)
+dev.off()
+
+pdf('i_sum_CHDS_30.pdf')
+par(mfrow=c(1,2))
+boxplot(final_Data_complete$i_sum~final_Data_complete$diagnosis,xlab='diagnosis',ylab = 'i_sum',main='CHDS',ylim=c(0,1),col=NULL)
+dev.off()
+
+
+peer <- final_Data_complete %>% select(c(starts_with("peer")))
+peer$sum=apply(peer,1,  sumna)
+peer$count=apply(peer[,-6],1,  countna)
+
+peer$score=peer$sum/peer$count
+pdf('peer_CHDS_30.pdf')
+par(mfrow=c(1,2))
+boxplot(peer$score~final_Data_complete$diagnosis,xlab='diagnosis',ylab = 'Peer cannabis use',main='CHDS',ylim=c(0,1),col=NULL)
+dev.off()
+
+
+pdf('delq_CHDS_30.pdf')
+par(mfrow=c(1,2))
+boxplot(delq$score~final_Data_complete$diagnosis,xlab='diagnosis',ylab = 'Delinquency',main='CHDS',ylim=c(0,1),col=NULL)
+dev.off()
+
+
+```
+
+
